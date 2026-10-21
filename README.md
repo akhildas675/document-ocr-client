@@ -22,8 +22,8 @@ A responsive web application built with React, TypeScript, and Vite for uploadin
 ## Installation
 
 ```bash
-git clone <frontend-repository-url>
-cd document-ocr-frontend
+git clone https://github.com/akhildas675/document-ocr-client
+cd document-ocr-client
 npm install
 ```
 
