@@ -10,17 +10,21 @@ function Navbar() {
         className="mx-auto flex max-w-6xl flex-wrap items-center justify-between px-5 py-4 sm:px-8"
         aria-label="Main navigation"
       >
-        <a href="/" className="flex items-center gap-3">
-          <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-violet-500 font-bold text-white">
-            C
-          </span>
+        <a href="/" className="group flex items-center gap-3">
+          <div className="flex items-center justify-center rounded-xl bg-white px-2.5 py-1.5 shadow-sm ring-1 ring-white/20 transition group-hover:scale-[1.02]">
+            <img
+              src="/ocr-logo.png"
+              alt="OcrTextFinder Logo"
+              className="h-7 w-auto object-contain"
+            />
+          </div>
 
           <span>
-            <span className="block text-lg font-semibold text-white">
-              ClearText
+            <span className="block text-lg font-bold tracking-tight text-white transition group-hover:text-violet-300">
+              OcrTextFinder
             </span>
-            <span className="block text-xs tracking-wider text-zinc-500">
-              DOCUMENT OCR
+            <span className="block text-[10px] font-semibold tracking-wider uppercase text-zinc-400">
+              Document OCR
             </span>
           </span>
         </a>
