@@ -31,7 +31,6 @@ function readImageAsDataUrl(file: Blob): Promise<string> {
 function ImageUploadCard({
   title,
   description,
-  required = false,
   onImageCropped,
 }: ImageUploadCardProps) {
   const [cropUrl, setCropUrl] = useState<string | null>(null);
@@ -127,9 +126,7 @@ function ImageUploadCard({
           </p>
         </div>
 
-        <span className="shrink-0 rounded-full border border-zinc-700 px-2.5 py-1 text-xs text-zinc-400">
-          {required ? "Required" : "Optional"}
-        </span>
+        
       </div>
 
       {cropUrl ? (

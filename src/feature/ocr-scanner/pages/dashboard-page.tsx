@@ -78,14 +78,11 @@ function DashboardPage() {
 
       <main className="mx-auto w-full max-w-5xl px-4 py-8 sm:px-6 sm:py-10">
         <section className="mx-auto mb-8 max-w-2xl text-center">
-          <p className="mb-3 text-xs font-semibold uppercase tracking-widest text-violet-400 sm:text-sm">
+          <h1 className="mb-3 text-xs font-semibold uppercase tracking-widest text-violet-400 sm:text-sm">
             Document text extraction
-          </p>
-
-          <h1 className="text-3xl font-bold tracking-tight sm:text-4xl">
-            Turn images into{" "}
-            <span className="text-violet-400">text.</span>
           </h1>
+
+      
 
           <p className="mx-auto mt-3 max-w-xl text-sm leading-6 text-zinc-400 sm:text-base">
             Upload a document, select the important area, and extract

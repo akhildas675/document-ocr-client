@@ -19,14 +19,6 @@ function Navbar() {
             />
           </div>
 
-          <span>
-            <span className="block text-lg font-bold tracking-tight text-white transition group-hover:text-violet-300">
-              OcrTextFinder
-            </span>
-            <span className="block text-[10px] font-semibold tracking-wider uppercase text-zinc-400">
-              Document OCR
-            </span>
-          </span>
         </a>
 
         <button
