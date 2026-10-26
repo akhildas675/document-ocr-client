@@ -1,5 +1,5 @@
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import toast from "react-hot-toast";
 
 import ImageCrop from "../image-crop/image.crop";
@@ -19,14 +19,11 @@ function readImageAsDataUrl(file: Blob): Promise<string> {
       if (typeof reader.result === "string") {
         resolve(reader.result);
       } else {
-        reject(new Error("Unable to read the image."));
+        reject(new Error("Unable to read image."));
       }
     };
 
-    reader.onerror = () => {
-      reject(new Error("Unable to read the image."));
-    };
-
+    reader.onerror = () => reject(new Error("Unable to read image."));
     reader.readAsDataURL(file);
   });
 }
@@ -42,19 +39,27 @@ function ImageUploadCard({
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [isReading, setIsReading] = useState(false);
 
+  useEffect(() => {
+    return () => {
+      if (cropUrl?.startsWith("blob:")) {
+        URL.revokeObjectURL(cropUrl);
+      }
+
+      if (previewUrl?.startsWith("blob:")) {
+        URL.revokeObjectURL(previewUrl);
+      }
+    };
+  }, [cropUrl, previewUrl]);
+
   async function handleFileChange(
-    event: React.ChangeEvent<HTMLInputElement>,
+    event: React.ChangeEvent<HTMLInputElement>
   ) {
     const selectedFile = event.target.files?.[0];
     event.target.value = "";
 
     if (!selectedFile) return;
 
-    const allowedTypes = [
-      "image/jpeg",
-      "image/png",
-      "image/webp",
-    ];
+    const allowedTypes = ["image/jpeg", "image/png", "image/webp"];
 
     if (!allowedTypes.includes(selectedFile.type)) {
       toast.error("Select a JPEG, PNG, or WebP image.");
@@ -69,12 +74,14 @@ function ImageUploadCard({
     try {
       setIsReading(true);
 
+      // Release the previous cropped image from the dashboard.
+      onImageCropped(null);
+
       const imageDataUrl = await readImageAsDataUrl(selectedFile);
 
       setCroppedFile(null);
       setPreviewUrl(null);
       setCropUrl(imageDataUrl);
-      onImageCropped(null);
     } catch {
       toast.error("Unable to read the selected image.");
     } finally {
@@ -105,20 +112,22 @@ function ImageUploadCard({
     setCropUrl(null);
     setCroppedFile(null);
     setPreviewUrl(null);
-
     onImageCropped(null);
-    toast.success("Image removed.");
   }
 
   return (
-    <section className="rounded-2xl border border-zinc-800 bg-zinc-900/70 p-5 sm:p-6">
-      <div className="mb-5 flex items-start justify-between gap-3">
+    <section className="rounded-xl border border-zinc-800 bg-zinc-900/60 p-4 sm:p-5">
+      <div className="mb-4 flex items-start justify-between gap-3">
         <div>
-          <h3 className="font-medium text-zinc-100">{title}</h3>
-          <p className="mt-1 text-sm text-zinc-500">{description}</p>
+          <h3 className="text-sm font-semibold text-zinc-100">
+            {title}
+          </h3>
+          <p className="mt-1 text-sm text-zinc-400">
+            {description}
+          </p>
         </div>
 
-        <span className="rounded-full border border-zinc-700 px-2.5 py-1 text-xs text-zinc-400">
+        <span className="shrink-0 rounded-full border border-zinc-700 px-2.5 py-1 text-xs text-zinc-400">
           {required ? "Required" : "Optional"}
         </span>
       </div>
@@ -126,18 +135,18 @@ function ImageUploadCard({
       {cropUrl ? (
         <ImageCrop
           image={cropUrl}
-          onCancel={handleCancelCrop}
           onCropComplete={handleCropComplete}
+          onCancel={handleCancelCrop}
         />
       ) : previewUrl && croppedFile ? (
         <div>
           <img
             src={previewUrl}
-            alt="Preview of cropped document"
-            className="max-h-64 w-full rounded-xl object-contain"
+            alt="Cropped document preview"
+            className="mx-auto max-h-64 w-full rounded-lg bg-zinc-950 object-contain"
           />
 
-          <div className="mt-4 flex items-center justify-between gap-3">
+          <div className="mt-3 flex items-center justify-between gap-3">
             <p className="text-sm text-emerald-400">
               Cropped image ready
             </p>
@@ -153,21 +162,21 @@ function ImageUploadCard({
         </div>
       ) : (
         <label
-          className={`flex min-h-48 flex-col items-center justify-center rounded-xl border border-dashed border-zinc-700 bg-zinc-950/60 p-8 text-center ${
+          className={`flex min-h-36 flex-col items-center justify-center rounded-lg border border-dashed border-zinc-700 bg-zinc-950/60 p-6 text-center transition ${
             isReading
               ? "cursor-wait opacity-60"
               : "cursor-pointer hover:border-violet-400/60"
           }`}
         >
-          <span className="mb-4 flex h-12 w-12 items-center justify-center rounded-xl bg-zinc-800 text-2xl text-violet-300">
+          <span className="mb-3 flex h-10 w-10 items-center justify-center rounded-lg bg-zinc-800 text-xl text-violet-300">
             +
           </span>
 
-          <span className="font-medium text-zinc-200">
+          <span className="text-sm font-medium text-zinc-200">
             {isReading ? "Reading image..." : "Choose an image"}
           </span>
 
-          <span className="mt-2 text-sm text-zinc-500">
+          <span className="mt-1 text-xs text-zinc-400">
             JPEG, PNG, or WebP · Maximum 5 MB
           </span>
 

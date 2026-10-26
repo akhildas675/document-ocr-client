@@ -1,157 +1,145 @@
 
-import { useCallback, useState } from "react";
-import Cropper from "react-easy-crop";
+import { useState } from "react";
+import ReactCrop, {
+  type PercentCrop,
+} from "react-image-crop";
+import "react-image-crop/dist/ReactCrop.css";
 
-interface ImageCropperProps {
+interface ImageCropProps {
   image: string;
-  onCancel: () => void;
-  onCropComplete: (croppedImage: Blob) => void;
+  onCropComplete: (image: Blob) => void;
+  onCancel?: () => void;
 }
 
-interface CroppedArea {
-  x: number;
-  y: number;
-  width: number;
-  height: number;
-}
+const INITIAL_CROP: PercentCrop = {
+  unit: "%",
+  x: 5,
+  y: 5,
+  width: 90,
+  height: 90,
+};
 
-function createCroppedImage(
-  imageSrc: string,
-  crop: CroppedArea,
-): Promise<Blob> {
-  return new Promise((resolve, reject) => {
-    const image = new Image();
+function ImageCrop({
+  image,
+  onCropComplete,
+  onCancel,
+}: ImageCropProps) {
+  const imageRef = useState<HTMLImageElement | null>(null);
+  const [crop, setCrop] = useState<PercentCrop>(INITIAL_CROP);
+  const [busy, setBusy] = useState(false);
 
-    image.onload = () => {
+  async function handleCrop() {
+    const img = imageRef[0];
+
+    if (
+      !img ||
+      !img.complete ||
+      !crop.width ||
+      !crop.height ||
+      busy
+    ) {
+      return;
+    }
+
+    setBusy(true);
+
+    try {
+      const scaleX = img.naturalWidth / 100;
+      const scaleY = img.naturalHeight / 100;
+
+      const sx = Math.max(0, crop.x * scaleX);
+      const sy = Math.max(0, crop.y * scaleY);
+      const sw = Math.min(img.naturalWidth - sx, crop.width * scaleX);
+      const sh = Math.min(img.naturalHeight - sy, crop.height * scaleY);
+
       const canvas = document.createElement("canvas");
+      canvas.width = Math.round(sw);
+      canvas.height = Math.round(sh);
+
       const context = canvas.getContext("2d");
 
       if (!context) {
-        reject(new Error("Could not create image canvas."));
-        return;
+        throw new Error("Unable to create crop canvas.");
       }
 
-      canvas.width = Math.round(crop.width);
-      canvas.height = Math.round(crop.height);
-
       context.drawImage(
-        image,
-        crop.x,
-        crop.y,
-        crop.width,
-        crop.height,
+        img,
+        sx,
+        sy,
+        sw,
+        sh,
         0,
         0,
         canvas.width,
-        canvas.height,
+        canvas.height
       );
 
-      canvas.toBlob(
-        (blob) => {
-          if (blob) {
-            resolve(blob);
-          } else {
-            reject(new Error("Could not crop the image."));
-          }
-        },
-        "image/jpeg",
-        0.92,
-      );
-    };
+      const blob = await new Promise<Blob>((resolve, reject) => {
+        canvas.toBlob(
+          (result) =>
+            result
+              ? resolve(result)
+              : reject(new Error("Unable to crop image.")),
+          "image/png"
+        );
+      });
 
-    image.onerror = () => {
-      reject(new Error("Could not load the image."));
-    };
-
-    image.src = imageSrc;
-  });
-}
-
-function ImageCropper({
-  image,
-  onCancel,
-  onCropComplete,
-}: ImageCropperProps) {
-  const [crop, setCrop] = useState({ x: 0, y: 0 });
-  const [zoom, setZoom] = useState(1);
-  const [croppedAreaPixels, setCroppedAreaPixels] =
-    useState<CroppedArea | null>(null);
-  const [error, setError] = useState("");
-  const [isCropping, setIsCropping] = useState(false);
-
-  const handleCropComplete = useCallback(
-    (_croppedArea: unknown, croppedPixels: CroppedArea) => {
-      setCroppedAreaPixels(croppedPixels);
-    },
-    [],
-  );
-
-  async function handleConfirmCrop() {
-    if (!croppedAreaPixels || isCropping) return;
-
-    try {
-      setIsCropping(true);
-      setError("");
-
-      const blob = await createCroppedImage(image, croppedAreaPixels);
       onCropComplete(blob);
-    } catch {
-      setError("Unable to crop this image. Please try again.");
+    } catch (error) {
+      console.error("Crop failed:", error);
+      window.alert("Unable to crop the image. Please try again.");
     } finally {
-      setIsCropping(false);
+      setBusy(false);
     }
   }
 
   return (
     <div className="space-y-4">
-      <div className="relative h-80 overflow-hidden rounded-xl bg-black">
-        <Cropper
-          image={image}
+      <div className="max-h-[65vh] overflow-auto rounded-lg bg-gray-100 p-2">
+        <ReactCrop
           crop={crop}
-          zoom={zoom}
-          minZoom={1}
-          maxZoom={4}
-          aspect={undefined}
-          onCropChange={setCrop}
-          onZoomChange={setZoom}
-          onCropComplete={handleCropComplete}
-          restrictPosition={false}
-          zoomWithScroll
-          showGrid={false}
-        />
+          onChange={(_, percentCrop) => setCrop(percentCrop)}
+          minWidth={5}
+          minHeight={5}
+        >
+          <img
+            ref={(element) => {
+              imageRef[1](element);
+            }}
+            src={image}
+            alt="Select the document area to crop"
+            className="block max-h-[60vh] max-w-full object-contain"
+          />
+        </ReactCrop>
       </div>
 
-      <p className="text-xs text-zinc-500">
-        Drag the image to position it. Use the mouse wheel or trackpad to zoom.
+      <p className="text-sm text-zinc-400">
+        Drag the corners and edges to adjust the crop area precisely.
       </p>
 
-      {error && (
-        <p role="alert" className="text-sm text-red-400">
-          {error}
-        </p>
-      )}
-
-      <div className="flex justify-end gap-3">
+      <div className="flex gap-3">
         <button
           type="button"
-          onClick={onCancel}
-          disabled={isCropping}
-          className="rounded-lg border border-zinc-700 px-4 py-2 text-sm text-zinc-300 disabled:opacity-50"
+          onClick={handleCrop}
+          disabled={busy}
+          className="rounded-lg bg-violet-500 px-4 py-2 text-white disabled:opacity-50"
         >
-          Cancel
+          {busy ? "Cropping..." : "Crop and Continue"}
         </button>
 
-        <button
-          type="button"
-          onClick={handleConfirmCrop}
-          disabled={!croppedAreaPixels || isCropping}
-          className="rounded-lg bg-violet-500 px-4 py-2 text-sm font-semibold text-white disabled:cursor-not-allowed disabled:opacity-50"
-        >
-          {isCropping ? "Cropping..." : "Confirm crop"}
-        </button>
+        {onCancel && (
+          <button
+            type="button"
+            onClick={onCancel}
+            disabled={busy}
+            className="rounded-lg border border-zinc-700 px-4 py-2 text-zinc-200"
+          >
+            Cancel
+          </button>
+        )}
       </div>
     </div>
   );
 }
 
-export default ImageCropper;
+export default ImageCrop;
