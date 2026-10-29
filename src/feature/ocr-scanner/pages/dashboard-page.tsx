@@ -4,57 +4,45 @@ import toast from "react-hot-toast";
 import axios from "axios";
 
 import type { OcrResponse } from "../types";
-import ocrServices from "../services/ocr-services";
 import Navbar from "../components/layout/navbar";
 import ImageUploadCard from "../components/upload/image-upload.card";
+import aadhaarServices from "../services/aadhaar-services";
 
 function DashboardPage() {
   const [frontImage, setFrontImage] = useState<Blob | null>(null);
   const [backImage, setBackImage] = useState<Blob | null>(null);
-  const [showSecondImage, setShowSecondImage] = useState(false);
   const [loading, setLoading] = useState(false);
   const [result, setResult] = useState<OcrResponse | null>(null);
 
-  function handleSecondImageToggle() {
-    if (showSecondImage) {
-      setBackImage(null);
-    }
-
-    setResult(null);
-    setShowSecondImage((visible) => !visible);
-  }
-
   async function handleExtractText() {
-    if (!frontImage) {
-      toast.error("Please upload and crop the first image.");
+    if (!frontImage || !backImage) {
+      toast.error("Please upload and crop both Aadhaar sides.");
       return;
     }
 
     if (loading) return;
 
     const formData = new FormData();
-
     formData.append("frontImage", frontImage, "front.png");
+    formData.append("backImage", backImage, "back.png");
 
-    if (showSecondImage && backImage) {
-      formData.append("backImage", backImage, "back.png");
-    }
-
-    const toastId = toast.loading("Extracting document text...");
+    const toastId = toast.loading("Extracting Aadhaar details...");
 
     try {
       setLoading(true);
       setResult(null);
 
-      const response = await ocrServices.extractDocumentText(formData);
+      const response =
+        await aadhaarServices.extractDocumentText(formData);
 
       setResult(response);
 
-      toast.success("Text extracted successfully!", {
-        id: toastId,
-      });
+      toast.success(
+        response.message || "Aadhaar details extracted successfully.",
+        { id: toastId }
+      );
     } catch (err: unknown) {
-      let message = "Unable to extract text. Please try again.";
+      let message = "Unable to extract Aadhaar details. Please try again.";
 
       if (axios.isAxiosError(err)) {
         message =
@@ -72,36 +60,37 @@ function DashboardPage() {
     }
   }
 
+  const data = result?.data;
+
   return (
     <div className="min-h-screen bg-zinc-950 text-zinc-50">
       <Navbar />
 
-      <main className="mx-auto w-full max-w-5xl px-4 py-8 sm:px-6 sm:py-10">
-        <section className="mx-auto mb-8 max-w-2xl text-center">
-          <h1 className="mb-3 text-xs font-semibold uppercase tracking-widest text-violet-400 sm:text-sm">
-            Document text extraction
+      <main className="mx-auto w-full max-w-5xl px-4 py-6 sm:px-6">
+        <section className="mx-auto mb-6 max-w-xl text-center">
+          <h1 className="text-xs font-semibold uppercase tracking-widest text-violet-400 sm:text-sm">
+            Aadhaar information extraction
           </h1>
 
-      
-
-          <p className="mx-auto mt-3 max-w-xl text-sm leading-6 text-zinc-400 sm:text-base">
-            Upload a document, select the important area, and extract
-            readable text.
+          <p className="mx-auto mt-2 text-sm leading-5 text-zinc-400">
+            Upload both sides of your Aadhaar card to extract the available
+            details.
           </p>
         </section>
 
-        <section className="mx-auto max-w-3xl">
-          <div className="mb-4">
-            <h2 className="text-lg font-semibold">Your documents</h2>
-            <p className="mt-1 text-sm text-zinc-400">
-              Upload one image or include a second side.
+        {/* Upload boxes: left and right */}
+        <section className="mx-auto max-w-4xl">
+          <div className="mb-3">
+            <h2 className="text-base font-semibold">Upload Aadhaar images</h2>
+            <p className="mt-1 text-xs text-zinc-400">
+              Both front and back images are required.
             </p>
           </div>
 
-          <div className="space-y-4">
+          <div className="grid grid-cols-1 items-start gap-4 sm:grid-cols-2">
             <ImageUploadCard
-              title="First image"
-              description="Select and crop the main document image."
+              title="Front side"
+              description="Upload and crop the front side."
               required
               onImageCropped={(image) => {
                 setFrontImage(image);
@@ -109,66 +98,88 @@ function DashboardPage() {
               }}
             />
 
-            {showSecondImage && (
-              <ImageUploadCard
-                title="Second image"
-                description="Select and crop the other side or page."
-                onImageCropped={(image) => {
-                  setBackImage(image);
-                  setResult(null);
-                }}
-              />
-            )}
+            <ImageUploadCard
+              title="Back side"
+              description="Upload and crop the back side."
+              required
+              onImageCropped={(image) => {
+                setBackImage(image);
+                setResult(null);
+              }}
+            />
           </div>
 
-          <button
-            type="button"
-            onClick={handleSecondImageToggle}
-            className="mt-4 text-sm font-medium text-violet-300 hover:text-violet-200"
-          >
-            {showSecondImage
-              ? "− Remove second image"
-              : "+ Add another image"}
-          </button>
+          {/* Centered button below both upload boxes */}
+          <div className="mt-5 flex justify-center">
+            <button
+              type="button"
+              onClick={handleExtractText}
+              disabled={!frontImage || !backImage || loading}
+              className="w-full rounded-lg bg-violet-500 px-6 py-3 text-sm font-semibold text-white transition hover:bg-violet-400 disabled:cursor-not-allowed disabled:opacity-50 sm:w-auto sm:min-w-64"
+            >
+              {loading
+                ? "Extracting details..."
+                : "Extract Aadhaar Details →"}
+            </button>
+          </div>
+        </section>
 
-          <button
-            type="button"
-            onClick={handleExtractText}
-            disabled={!frontImage || loading}
-            className="mt-5 flex w-full items-center justify-center rounded-lg bg-violet-500 px-5 py-3 text-sm font-semibold text-white transition hover:bg-violet-400 disabled:cursor-not-allowed disabled:opacity-50"
-          >
-            {loading ? "Extracting text..." : "Extract text →"}
-          </button>
+        {/* Extracted details below the upload section */}
+        {data && (
+          <section className="mx-auto mt-8 max-w-4xl">
+            <div className="mb-4">
+              <h2 className="text-base font-semibold">Extracted details</h2>
+              <p className="mt-1 text-xs text-zinc-400">
+                Review the details. OCR results may contain errors.
+              </p>
+            </div>
 
-          {result && (
-            <section className="mt-6 space-y-4">
-              <h2 className="text-lg font-semibold">Extracted text</h2>
+            <div className="grid grid-cols-1 items-start gap-4 md:grid-cols-2">
+              <div className="rounded-xl border border-zinc-800 bg-zinc-900/70 p-4">
+                <h3 className="mb-3 text-sm font-semibold">Front side</h3>
 
-              <div className="rounded-xl border border-zinc-800 bg-zinc-900/70 p-4 sm:p-5">
-                <h3 className="mb-2 text-sm font-medium text-zinc-300">
-                  First image
-                </h3>
-
-                <pre className="whitespace-pre-wrap break-words font-sans text-sm leading-6 text-zinc-100">
-                  {result.frontText}
-                </pre>
+                <div className="space-y-3">
+                  <DetailRow label="Name" value={data.frontImage.name} />
+                  <DetailRow
+                    label="Date of birth"
+                    value={data.frontImage.dateOfBirth}
+                  />
+                  <DetailRow label="Gender" value={data.frontImage.gender} />
+                  <DetailRow
+                    label="Aadhaar number"
+                    value={data.frontImage.aadhaarNumber}
+                  />
+                </div>
               </div>
 
-              {result.backText != null && (
-                <div className="rounded-xl border border-zinc-800 bg-zinc-900/70 p-4 sm:p-5">
-                  <h3 className="mb-2 text-sm font-medium text-zinc-300">
-                    Second image
-                  </h3>
+              <div className="rounded-xl border border-zinc-800 bg-zinc-900/70 p-4">
+                <h3 className="mb-3 text-sm font-semibold">Back side</h3>
 
-                  <pre className="whitespace-pre-wrap break-words font-sans text-sm leading-6 text-zinc-100">
-                    {result.backText}
-                  </pre>
+                <div className="space-y-3">
+                  <DetailRow label="Address" value={data.backImage.address} />
+                  <DetailRow label="PIN code" value={data.backImage.pinCode} />
                 </div>
-              )}
-            </section>
-          )}
-        </section>
+              </div>
+            </div>
+          </section>
+        )}
       </main>
+    </div>
+  );
+}
+
+interface DetailRowProps {
+  label: string;
+  value: string | null;
+}
+
+function DetailRow({ label, value }: DetailRowProps) {
+  return (
+    <div className="grid grid-cols-[105px_minmax(0,1fr)] gap-3 border-b border-zinc-800 pb-2 last:border-0 last:pb-0">
+      <span className="text-xs text-zinc-400">{label}</span>
+      <span className="break-words text-sm text-zinc-100">
+        {value || "Not detected"}
+      </span>
     </div>
   );
 }
