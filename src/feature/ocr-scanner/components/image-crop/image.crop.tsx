@@ -38,7 +38,6 @@ function ImageCrop({
     setRotation((current) => (current + 90) % 360);
     setCrop(INITIAL_CROP);
   }
-
   async function handleCrop() {
     const img = imageRef.current;
 
