@@ -1,5 +1,4 @@
-
-import { useState } from "react";
+import { useRef, useState } from "react";
 import ReactCrop, {
   type PercentCrop,
 } from "react-image-crop";
@@ -24,16 +23,30 @@ function ImageCrop({
   onCropComplete,
   onCancel,
 }: ImageCropProps) {
-  const imageRef = useState<HTMLImageElement | null>(null);
+  const imageRef = useRef<HTMLImageElement | null>(null);
+
   const [crop, setCrop] = useState<PercentCrop>(INITIAL_CROP);
+  const [rotation, setRotation] = useState(0);
   const [busy, setBusy] = useState(false);
 
+  function rotateLeft() {
+    setRotation((current) => (current - 90 + 360) % 360);
+    setCrop(INITIAL_CROP);
+  }
+
+  function rotateRight() {
+    setRotation((current) => (current + 90) % 360);
+    setCrop(INITIAL_CROP);
+  }
+
   async function handleCrop() {
-    const img = imageRef[0];
+    const img = imageRef.current;
 
     if (
       !img ||
       !img.complete ||
+      !img.naturalWidth ||
+      !img.naturalHeight ||
       !crop.width ||
       !crop.height ||
       busy
@@ -44,42 +57,71 @@ function ImageCrop({
     setBusy(true);
 
     try {
-      const scaleX = img.naturalWidth / 100;
-      const scaleY = img.naturalHeight / 100;
+   
+      const sourceCanvas = document.createElement("canvas");
+      const sourceContext = sourceCanvas.getContext("2d");
 
-      const sx = Math.max(0, crop.x * scaleX);
-      const sy = Math.max(0, crop.y * scaleY);
-      const sw = Math.min(img.naturalWidth - sx, crop.width * scaleX);
-      const sh = Math.min(img.naturalHeight - sy, crop.height * scaleY);
+      if (!sourceContext) {
+        throw new Error("Unable to create image canvas.");
+      }
 
-      const canvas = document.createElement("canvas");
-      canvas.width = Math.round(sw);
-      canvas.height = Math.round(sh);
+      const angle = (rotation * Math.PI) / 180;
+      const swapsDimensions = rotation === 90 || rotation === 270;
 
-      const context = canvas.getContext("2d");
+      sourceCanvas.width = swapsDimensions
+        ? img.naturalHeight
+        : img.naturalWidth;
 
-      if (!context) {
+      sourceCanvas.height = swapsDimensions
+        ? img.naturalWidth
+        : img.naturalHeight;
+
+      sourceContext.translate(
+        sourceCanvas.width / 2,
+        sourceCanvas.height / 2
+      );
+      sourceContext.rotate(angle);
+
+      sourceContext.drawImage(
+        img,
+        -img.naturalWidth / 2,
+        -img.naturalHeight / 2
+      );
+
+ 
+      const sx = (crop.x / 100) * sourceCanvas.width;
+      const sy = (crop.y / 100) * sourceCanvas.height;
+      const sw = (crop.width / 100) * sourceCanvas.width;
+      const sh = (crop.height / 100) * sourceCanvas.height;
+
+      const outputCanvas = document.createElement("canvas");
+      outputCanvas.width = Math.max(1, Math.round(sw));
+      outputCanvas.height = Math.max(1, Math.round(sh));
+
+      const outputContext = outputCanvas.getContext("2d");
+
+      if (!outputContext) {
         throw new Error("Unable to create crop canvas.");
       }
 
-      context.drawImage(
-        img,
+      outputContext.drawImage(
+        sourceCanvas,
         sx,
         sy,
         sw,
         sh,
         0,
         0,
-        canvas.width,
-        canvas.height
+        outputCanvas.width,
+        outputCanvas.height
       );
 
       const blob = await new Promise<Blob>((resolve, reject) => {
-        canvas.toBlob(
-          (result) =>
-            result
-              ? resolve(result)
-              : reject(new Error("Unable to crop image.")),
+        outputCanvas.toBlob(
+          (result) => {
+            if (result) resolve(result);
+            else reject(new Error("Unable to crop image."));
+          },
           "image/png"
         );
       });
@@ -95,6 +137,26 @@ function ImageCrop({
 
   return (
     <div className="space-y-4">
+      <div className="flex items-center justify-center gap-3">
+        <button
+          type="button"
+          onClick={rotateLeft}
+          disabled={busy}
+          className="rounded-lg border border-zinc-700 px-4 py-2 text-sm hover:bg-zinc-800 disabled:opacity-50"
+        >
+          ↶ Rotate left
+        </button>
+
+        <button
+          type="button"
+          onClick={rotateRight}
+          disabled={busy}
+          className="rounded-lg border border-zinc-700 px-4 py-2 text-sm hover:bg-zinc-800 disabled:opacity-50"
+        >
+          ↷ Rotate right
+        </button>
+      </div>
+
       <div className="max-h-[65vh] overflow-auto rounded-lg bg-gray-100 p-2">
         <ReactCrop
           crop={crop}
@@ -103,18 +165,24 @@ function ImageCrop({
           minHeight={5}
         >
           <img
-            ref={(element) => {
-              imageRef[1](element);
-            }}
+            ref={imageRef}
             src={image}
-            alt="Select the document area to crop"
-            className="block max-h-[60vh] max-w-full object-contain"
+            alt="Rotate and crop the document image"
+            style={{
+              transform: `rotate(${rotation}deg)`,
+              transformOrigin: "center center",
+              maxWidth: "100%",
+              maxHeight: "60vh",
+              width: "auto",
+              height: "auto",
+              display: "block",
+            }}
           />
         </ReactCrop>
       </div>
 
       <p className="text-sm text-zinc-400">
-        Drag the corners and edges to adjust the crop area precisely.
+        Rotate the image until the text is upright, then adjust the crop area.
       </p>
 
       <div className="flex gap-3">
@@ -124,7 +192,7 @@ function ImageCrop({
           disabled={busy}
           className="rounded-lg bg-violet-500 px-4 py-2 text-white disabled:opacity-50"
         >
-          {busy ? "Cropping..." : "Crop and Continue"}
+          {busy ? "Processing..." : "Crop and Continue"}
         </button>
 
         {onCancel && (
